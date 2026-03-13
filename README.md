@@ -4,7 +4,7 @@ Two independent AI agents in separate Docker containers discover each other, exc
 
 ## Status
 
-Phase 3 complete. Code built, all components implemented.
+Milestones 1–6 complete. E2E validated — agents successfully transfer SOL on devnet via LangChain agent orchestration.
 
 ## Architecture
 
@@ -84,6 +84,27 @@ docker compose logs -f agent-a  # Single agent
 5. Agent notifies peer of the transfer
 6. Peer verifies the transaction on-chain and confirms receipt
 7. Dashboard polls both agents and updates balances
+
+### Troubleshooting
+
+**Devnet airdrop fails (429 Too Many Requests):**
+Solana devnet throttles airdrops. Manually fund wallets at https://faucet.solana.com using the addresses shown in `GET /status`.
+
+**Transfer fails with "Blockhash not found":**
+Devnet can be slow. The retry logic (3 attempts) usually handles this. If persistent, restart the agents.
+
+**LangChain agent not available:**
+Check that `langchain<1.0.0` is installed. Run `docker exec agent-a python -c "from agent.agent import run_transfer_agent"` to verify.
+
+### Running Tests
+
+```bash
+# Quick tests (no SOL needed)
+python agent/tests/test_e2e.py
+
+# Full E2E with transfers (agents must be funded)
+python -m pytest agent/tests/test_e2e.py -v
+```
 
 ## Known Limitations
 
