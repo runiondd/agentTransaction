@@ -1,3 +1,4 @@
+import json
 import logging
 from contextlib import asynccontextmanager
 
@@ -7,10 +8,30 @@ from fastapi.middleware.cors import CORSMiddleware
 import config
 from api.routes import router
 
-logging.basicConfig(
-    level=logging.INFO,
-    format=f"%(asctime)s [{config.AGENT_ID}] %(levelname)s %(message)s",
-)
+
+class StructuredFormatter(logging.Formatter):
+    """JSON-structured log formatter with agent_id on every line."""
+
+    def format(self, record):
+        log = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "agent": config.AGENT_ID,
+            "level": record.levelname,
+            "module": record.module,
+            "msg": record.getMessage(),
+        }
+        return json.dumps(log)
+
+
+handler = logging.StreamHandler()
+handler.setFormatter(StructuredFormatter())
+logging.root.handlers = [handler]
+logging.root.setLevel(logging.INFO)
+
+# Quiet noisy HTTP request logs from httpx/httpcore
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 

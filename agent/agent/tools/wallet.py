@@ -1,7 +1,11 @@
+import logging
+
 from langchain_core.tools import tool
 
 from wallet.manager import WalletManager
 from wallet.transfer import transfer_sol as do_transfer
+
+logger = logging.getLogger(__name__)
 
 
 @tool
@@ -42,6 +46,8 @@ def transfer_sol(recipient_address: str, amount: float) -> str:
             f"Signature: {result.signature}. Explorer: {result.explorer_url}"
         )
     except ValueError as e:
+        logger.warning(f"Transfer validation error: {e}")
         return f"Error: {e}"
     except Exception as e:
+        logger.error(f"Transfer failed: {e}")
         return f"Transfer failed: {e}"

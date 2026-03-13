@@ -57,16 +57,42 @@ async def initiate_transfer(request: TransferRequest, background_tasks: Backgrou
 
 async def _run_transfer(transfer_id: str, to_agent: str, amount: float):
     """Run the agent-driven transfer flow."""
+    # Pre-flight balance check
+    try:
+        wallet = WalletManager.get_instance()
+        balance = wallet.get_balance()
+        if balance < amount + 0.001:
+            logger.error(
+                f"Insufficient balance for transfer: have {balance} SOL, "
+                f"need {amount} + fees"
+            )
+            app_state.add_transaction(
+                direction="sent",
+                counterparty=to_agent,
+                amount=amount,
+                signature="",
+                status="failed",
+            )
+            return
+    except Exception as e:
+        logger.error(f"Balance check failed: {e}")
+
     try:
         from agent.agent import run_transfer_agent
 
         await run_transfer_agent(to_agent, amount)
     except ImportError:
-        # Fallback: direct transfer without LangChain agent (for early milestones)
         logger.info("LangChain agent not available, using direct transfer")
         await _direct_transfer(to_agent, amount)
     except Exception as e:
         logger.error(f"Transfer failed: {e}")
+        app_state.add_transaction(
+            direction="sent",
+            counterparty=to_agent,
+            amount=amount,
+            signature="",
+            status="failed",
+        )
 
 
 async def _direct_transfer(to_agent: str, amount: float):
@@ -74,6 +100,7 @@ async def _direct_transfer(to_agent: str, amount: float):
     import httpx
 
     wallet = WalletManager.get_instance()
+    balance_before = wallet.get_balance()
 
     # Request peer address
     try:
@@ -90,6 +117,7 @@ async def _direct_transfer(to_agent: str, amount: float):
             resp.raise_for_status()
             msg = resp.json()
             peer_address = msg["payload"]["wallet_address"]
+            logger.info(f"Discovered peer address: {peer_address}")
     except Exception as e:
         logger.error(f"Failed to get peer address: {e}")
         return
@@ -128,9 +156,12 @@ async def _direct_transfer(to_agent: str, amount: float):
         except Exception as e:
             logger.warning(f"Failed to notify peer of transfer: {e}")
 
+    balance_after = wallet.get_balance()
     logger.info(
-        f"Transfer complete: {amount} SOL to {peer_address} "
-        f"status={result.status} sig={result.signature}"
+        f"Transfer summary: {amount} SOL to {peer_address} | "
+        f"status={result.status} | balance: {balance_before} -> {balance_after} SOL | "
+        f"sig={result.signature} | "
+        f"explorer={result.explorer_url}"
     )
 
 
@@ -158,8 +189,15 @@ async def receive_message(message: AgentMessage):
         amount = message.payload.get("amount", 0)
         from_address = message.payload.get("from_address", "")
 
+        if not sig:
+            logger.warning(f"Received notify_transfer with empty signature from {message.sender}")
+            raise HTTPException(status_code=400, detail="Missing transaction signature")
+
         verified = verify_transaction(wallet.rpc_client, sig)
-        logger.info(f"Transaction {sig} verification: {verified}")
+        logger.info(
+            f"Transfer verification: sig={sig[:16]}... amount={amount} SOL "
+            f"from={from_address} verified={verified}"
+        )
 
         app_state.add_transaction(
             direction="received",

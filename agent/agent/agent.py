@@ -60,17 +60,17 @@ async def run_transfer_agent(to_agent: str, amount: float):
         output = " ".join(item.get("text", "") if isinstance(item, dict) else str(item) for item in output)
     output = str(output)
     if "confirmed" in output.lower():
-        # Try to extract signature from the output
         import re
         sig_match = re.search(r"Signature: (\w+)", output)
         signature = sig_match.group(1) if sig_match else ""
 
-        from wallet.manager import WalletManager
-        wallet = WalletManager.get_instance()
+        # Extract peer wallet address from output, fall back to cached peer address
+        addr_match = re.search(r"To: ([1-9A-HJ-NP-Za-km-z]{32,44})", output)
+        counterparty = addr_match.group(1) if addr_match else (app_state.peer_address or to_agent)
 
         app_state.add_transaction(
             direction="sent",
-            counterparty=to_agent,
+            counterparty=counterparty,
             amount=amount,
             signature=signature,
             status="confirmed",
