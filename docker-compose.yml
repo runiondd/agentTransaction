@@ -1,0 +1,67 @@
+services:
+  agent-a:
+    build: ./agent
+    container_name: agent-a
+    ports:
+      - "8001:8000"
+    environment:
+      - AGENT_ID=agent-a
+      - PEER_AGENT_URL=http://agent-b:8000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - WALLET_PATH=/data/keypair.json
+    volumes:
+      - agent-a-data:/data
+    networks:
+      - agent-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  agent-b:
+    build: ./agent
+    container_name: agent-b
+    ports:
+      - "8002:8000"
+    environment:
+      - AGENT_ID=agent-b
+      - PEER_AGENT_URL=http://agent-a:8000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - WALLET_PATH=/data/keypair.json
+    volumes:
+      - agent-b-data:/data
+    networks:
+      - agent-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  dashboard:
+    build:
+      context: ./dashboard
+      args:
+        VITE_AGENT_A_URL: http://localhost:8001
+        VITE_AGENT_B_URL: http://localhost:8002
+    container_name: dashboard
+    ports:
+      - "3000:3000"
+    networks:
+      - agent-net
+    depends_on:
+      agent-a:
+        condition: service_healthy
+      agent-b:
+        condition: service_healthy
+
+networks:
+  agent-net:
+    driver: bridge
+
+volumes:
+  agent-a-data:
+  agent-b-data:

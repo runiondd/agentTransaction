@@ -1,0 +1,15 @@
+node_modules/
+__pycache__/
+.env
+.env.*
+!.env.example
+*.pyc
+.DS_Store
+dist/
+build/
+coverage/
+.vscode/
+.idea/
+volumes/
+*.egg-info/
+.pytest_cache/
