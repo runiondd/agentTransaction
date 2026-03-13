@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: agent-a
+    runtime: docker
+    dockerfilePath: ./agent/Dockerfile
+    dockerContext: ./agent
+    plan: free
+    envVars:
+      - key: AGENT_ID
+        value: agent-a
+      - key: PEER_AGENT_URL
+        sync: false  # Set manually after agent-b deploys
+      - key: SOLANA_RPC_URL
+        value: https://api.devnet.solana.com
+      - key: WALLET_PATH
+        value: /data/keypair.json
+      - key: ANTHROPIC_API_KEY
+        sync: false  # Set manually as secret
+
+  - type: web
+    name: agent-b
+    runtime: docker
+    dockerfilePath: ./agent/Dockerfile
+    dockerContext: ./agent
+    plan: free
+    envVars:
+      - key: AGENT_ID
+        value: agent-b
+      - key: PEER_AGENT_URL
+        sync: false  # Set manually after agent-a deploys
+      - key: SOLANA_RPC_URL
+        value: https://api.devnet.solana.com
+      - key: WALLET_PATH
+        value: /data/keypair.json
+      - key: ANTHROPIC_API_KEY
+        sync: false  # Set manually as secret
+
+  - type: web
+    name: agent-dashboard
+    runtime: static
+    buildCommand: cd dashboard && npm install && npm run build
+    staticPublishPath: ./dashboard/dist
+    plan: free
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_AGENT_A_URL
+        sync: false  # Set to agent-a's Render URL
+      - key: VITE_AGENT_B_URL
+        sync: false  # Set to agent-b's Render URL
