@@ -41,6 +41,26 @@ python3 agent/tests/test_e2e.py                   # Quick smoke tests (container
 python -m pytest agent/tests/test_e2e.py -v       # Full E2E with transfers
 ```
 
+## Code Standards
+
+- **Python**: snake_case for functions/variables, PascalCase for classes. Type hints on public function signatures.
+- **React**: PascalCase for components, camelCase for hooks/functions. Functional components only.
+- **API fields**: snake_case in all JSON request/response bodies.
+- **Error handling**: Never let exceptions crash the agent container. Catch at the route/tool boundary, log the error, return a meaningful message. LangChain tools should return error strings, not raise.
+- **Validation**: Validate all inputs at API boundaries (Pydantic models). Validate wallet addresses before signing. Validate amounts are positive and within balance before transferring.
+- **Logging**: Use structured JSON logging (configured in main.py). Every significant action gets a log line: startup, wallet init, message sent/received, transfer initiated/confirmed/failed.
+- **Dependencies**: Pin major versions in requirements.txt to avoid breaking upgrades. Always test after updating.
+
+## Testing Standards
+
+- **All tests live in `agent/tests/`**. Test files are prefixed `test_`.
+- **E2E tests run against live containers** — `docker compose up -d` must be running before tests.
+- **Quick tests** (status, messaging, validation) should not require funded wallets or make transfers.
+- **Transfer tests** are slow (~30s each) and require funded wallets. Separate them so quick tests can run independently.
+- **Test amounts**: Use small values (0.01 SOL) to conserve devnet funds.
+- **Assertions**: Always check HTTP status codes, response schema shape, and business logic (balance changes, transaction records).
+- **After any code change**: Rebuild containers (`docker compose build`), restart (`docker compose up -d`), run quick tests before committing.
+
 ## Don't
 
 - Don't upgrade langchain past 0.x — the agent code uses the 0.3 API
