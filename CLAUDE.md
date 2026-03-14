@@ -61,6 +61,25 @@ python -m pytest agent/tests/test_e2e.py -v       # Full E2E with transfers
 - **Assertions**: Always check HTTP status codes, response schema shape, and business logic (balance changes, transaction records).
 - **After any code change**: Rebuild containers (`docker compose build`), restart (`docker compose up -d`), run quick tests before committing.
 
+## Build Procedures
+
+1. **Before starting work**: `docker compose up -d` to ensure containers are running
+2. **After changing agent code**: `docker compose build agent-a agent-b && docker compose up -d agent-a agent-b`
+3. **After changing dashboard code**: `docker compose build dashboard && docker compose up -d dashboard`
+4. **After changing docker-compose.yml**: `docker compose up -d` (recreates affected services)
+5. **Full rebuild from scratch**: `docker compose down && docker compose build --no-cache && docker compose up -d`
+6. **Validate after every build**: Run quick tests (`python3 agent/tests/test_e2e.py`) before committing
+
+## Branching & Release
+
+- **Trunk-based development** on `main`. This is a POC — no long-lived feature branches.
+- **Short-lived branches** for multi-commit features: branch from `main`, PR back to `main`, squash merge.
+- **Branch naming**: `feature/short-description`, `fix/short-description`
+- **Commits**: One logical change per commit. Message format: imperative mood summary, blank line, body explaining why (not what). Include `Co-Authored-By` when Claude assists.
+- **No releases or tags** — this is a POC, not a shipped product. `main` is always the current state.
+- **Push to `main`** only when quick tests pass and containers start cleanly.
+- **If this graduates past POC**: Adopt semver tags, add CI (GitHub Actions to build + run quick tests on PR), and require PR reviews before merging.
+
 ## Don't
 
 - Don't upgrade langchain past 0.x — the agent code uses the 0.3 API
